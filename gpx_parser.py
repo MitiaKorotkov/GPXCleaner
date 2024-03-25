@@ -1,4 +1,6 @@
 import xml.etree.ElementTree as ET
+from os.path import dirname
+from os import makedirs
 import csv
 import typing
 
@@ -6,50 +8,65 @@ import typing
 TRACK_FILENAME = "gvan.gpx"
 GPX_NAMESPACE = {"gpx": "http://www.topografix.com/GPX/1/1"}
 
-
-class GeoPoint:
-    def __init__(self):
-        self.lat
-        self.lon
-        self.ele
-        self.time
-
-    def __repr__(self) -> str:
-        pass
+TRACK_FILES_DIRECTORY = "./tracks/"
+TMP_FILES_DIRECTORY = "./tmps/"
 
 
-def gpx_to_csv(track_filename: str = TRACK_FILENAME) -> None:
-    """_summary_
-
-    Returns:
-        _type_: _description_
+def write_trkseg_to_csv(
+    track_segment: ET.Element,
+    track_name: str,
+    segment_name: str,
+    csv_filename: str = None,
+) -> None:
+    """This function take one segment of track and create csv file with
+    information about its points. Each point represented by a raw containing
+    lattitude, longitude, elevation, day and time in this order.
     """
-    root = ET.parse(track_filename).getroot()
-    track_name = root.find("./gpx:trk/gpx:name", namespaces=GPX_NAMESPACE).text
-    track = root.findall(".//gpx:trkseg", namespaces=GPX_NAMESPACE)
+    points = track_segment.findall("./gpx:trkpt", namespaces=GPX_NAMESPACE)
 
-    for i, segment in enumerate(track):
-        points = segment.findall("./gpx:trkpt", namespaces=GPX_NAMESPACE)
+    parsed_points = [["lat", "lon", "ele", "day", "time"]]
+    for point in points:
+        lattitude = point.attrib["lat"]
+        longitude = point.attrib["lon"]
 
-        parsed_points = []
-        for point in points:
-            lattitude = point.attrib["lat"]
-            longitude = point.attrib["lon"]
+        elevation = point.findtext("./gpx:ele", default=0, namespaces=GPX_NAMESPACE)
+        elevation = round(float(elevation), 1)
 
-            elevation = point.findtext("./gpx:ele", default=0, namespaces=GPX_NAMESPACE)
-            elevation = round(float(elevation), 1)
+        data = point.findtext("./gpx:time", namespaces=GPX_NAMESPACE)[:-1].split("T")
+        day = data[0]
+        time = data[1]
 
-            data = point.findtext("./gpx:time", namespaces=GPX_NAMESPACE)[:-1].split("T")
-            day = data[0]
-            time = data[1]
+        parsed_points.append([lattitude, longitude, elevation, day, time])
 
-            parsed_points.append([lattitude, longitude, elevation, day, time])
-
-        with open(f"{track_name}_part_{i}.csv", "w", newline="") as csv_file:
-            writer = csv.writer(csv_file, dialect="excel")
-            writer.writerows(parsed_points)
+    filename = (
+        f"{TMP_FILES_DIRECTORY}{csv_filename}"
+        if csv_filename
+        else f"{TMP_FILES_DIRECTORY}{track_name}_{segment_name}"
+    )
+    makedirs(dirname(filename), exist_ok=True)
+    with open(f"{filename}.csv", "w", newline="") as csv_file:
+        writer = csv.writer(csv_file, dialect="excel")
+        writer.writerows(parsed_points)
 
     return None
 
 
-gpx_to_csv()
+def gpx_to_csv(track_filename: str) -> None:
+    """This function read gpx file and write different segments of track in
+    different csv files. Each track point in csv represented by a raw containing
+    lattitude, longitude, elevation, day and time in this order.
+
+    Args:
+        track_filename (str): name of gpx file with track
+    """
+    root = ET.parse(f"{TRACK_FILES_DIRECTORY}{track_filename}").getroot()
+    track_name = root.find("./gpx:trk/gpx:name", namespaces=GPX_NAMESPACE).text
+    track = root.findall(".//gpx:trkseg", namespaces=GPX_NAMESPACE)
+
+    for i, segment in enumerate(track):
+        write_trkseg_to_csv(segment, track_name, i)
+
+    return None
+
+
+gpx_to_csv(TRACK_FILENAME)
