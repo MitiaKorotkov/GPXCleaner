@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 from os.path import dirname
 from os import makedirs
 import csv
-import typing
+from numpy import pi
 
 
 TRACK_FILENAME = "gvan.gpx"
@@ -26,8 +26,8 @@ def write_trkseg_to_csv(
 
     parsed_points = [["lat", "lon", "ele", "day", "time"]]
     for point in points:
-        lattitude = point.attrib["lat"]
-        longitude = point.attrib["lon"]
+        lattitude = float(point.attrib["lat"]) * pi / 180
+        longitude = float(point.attrib["lon"]) * pi / 180
 
         elevation = point.findtext("./gpx:ele", default=0, namespaces=GPX_NAMESPACE)
         elevation = round(float(elevation), 1)
