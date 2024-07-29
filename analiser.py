@@ -1,96 +1,55 @@
-import plotly.graph_objs as go
-
 import numpy as np
 import pandas as pd
 
+import plotly.graph_objs as go
 
-CSV_TRACK_FILENAME = "./tmps/Трек_0.csv"
-EARTH_RADIUS = 6371 * 10e2
-
-
-def hav(point_1, point_2):
-    """_summary_
-
-    Args:
-        point_1 (_type_): _description_
-        point_2 (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    phi_1, lambda_1 = point_1
-    phi_2, lambda_2 = point_2
-
-    return np.sin((phi_2 - phi_1) / 2) ** 2 + np.cos(phi_1) * np.cos(phi_2) * (
-        np.sin((lambda_2 - lambda_1) / 2) ** 2
-    )
+from spheric_geometry import arc_distance, angle_between_segments, spheric_to_decart
 
 
-def arc_distance(point_1, point_2):
-    """_summary_
+CSV_TRACK_FILENAME = "./tmps/Орехово-Зуевский район Поход_0.csv"
+ORIENT_MODE = 1
 
-    Args:
-        point_1 (_type_): _description_
-        point_2 (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    h = hav(point_1, point_2)
-    return 2 * EARTH_RADIUS * np.arcsin(np.sqrt(h))
-
-
-def angle_between_segments(point_A, point_B, point_C):
-    """_summary_
-
-    Args:
-        point_A (_type_): _description_
-        point_B (_type_): _description_
-        point_C (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    cos_a = 1 - 2 * hav(point_B, point_C)
-    cos_b = 1 - 2 * hav(point_A, point_C)
-    cos_c = 1 - 2 * hav(point_A, point_B)
-
-    sin_a = np.sqrt(1 - cos_a**2)
-    sin_c = np.sqrt(1 - cos_c**2)
-
-    B = (cos_b - cos_a * cos_c) / sin_a / sin_c
-
-    return np.arccos(B) if (B < 1 and B > -1) else np.pi
-
-
-# Unpack csv and calculate angles between neighboring segments
+# Unpack csv
 points_df = pd.read_csv(CSV_TRACK_FILENAME)
-
 lons = np.array(points_df["lon"])
 lats = np.array(points_df["lat"])
 
 points = np.array(list(zip(lats, lons)))
+decart_coords = np.array([spheric_to_decart(np.pi / 2 - p[1], p[0]) for p in points])
+vectorized_segments = decart_coords[1:] - decart_coords[:-1]
+
+#shperic metrics
 angles = np.array(
     [angle_between_segments(*points[i : i + 3]) for i in range(len(points) - 2)]
 )
-distances = np.cumsum(
-    [arc_distance(*points[i : i + 2]) for i in range(len(points) - 1)]
-)
+arc_lengths = np.array([arc_distance(*points[i : i + 2]) for i in range(len(points) - 1)])
+distances_from_begin = np.cumsum(arc_lengths)
+
+#oriented angles
+vec1 = np.cross(*vectorized_segments[0: 2])
+orientations = np.array([np.sign(np.cross(*vectorized_segments[i: i + 2]) @ vec1) for i in range(len(vectorized_segments) - 1)])
+oriented_angles = (np.pi - angles.T) * orientations
+
+#distances from start point
+dist_from_start = np.array([arc_distance(points[0], points[i]) for i in range(len(points))])
+diriv = np.array([(dist_from_start[i] - dist_from_start[i + 1]) for i in range(len(dist_from_start) - 1)])
 
 # Plot
 num_steps = 100
+param = angles
 trace_list = [
-    go.Scatter(visible=True, x=distances, y=angles, mode="lines+markers", name="angles")
+    go.Scatter(visible=True, x=distances_from_begin, y=param, mode="lines+markers", name="angles")
 ]
 
 for N in range(1, 300, 3):
-    # Sums of angles between N neighboring segments
-    sums = np.array([sum(angles[i : i + N]) / N for i in range(len(angles) - N)])
-
+    # Sums of params between N neighboring segments
+    sums = np.array([sum(param[i : i + N]) / N for i in range(len(param) - N)])
+    # sums = np.array([arc_distance(points[i], points[i + N]) for i in range(len(points) - N)])
+    
     trace_list.append(
         go.Scatter(
             visible=False,
-            x=distances[0:-N],
+            x=distances_from_begin[0:-N],
             y=sums,
             mode="lines+markers",
             name="angles",
