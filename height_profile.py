@@ -58,13 +58,16 @@ trace_list = go.Scatter(
     name="Elevation profile",
     fill="tozeroy",
 )
-fig = go.Figure(data=trace_list)
+fig = go.Figure(
+    data=trace_list,
+    layout_yaxis_range=[1300, 4800],
+)
 
 for name, i in nearest_p:
     fig.add_vline(
         x=distances_from_begin[i],
         line_width=1,
-        line_color="gray",
+        line_color="white",
         annotation_text=name,
         # label={
         #     'text': f'\t{name}',
@@ -77,14 +80,13 @@ for name, i in nearest_p:
         #     'xanchor': "right",
         # },
         y0=0,
-        y1=0.1,
+        y1=0.05,
     )
+# fig.layout.plot_bgcolor='white'
 
-# fig.show()
-# img_bytes = fig.to_image(format="")
-# print(img_bytes[:20])
+fig.show()
 
 if not os.path.exists("images"):
     os.mkdir("images")
 
-fig.write_image(f"images/profile.svg", format='svg', width=2560, height=1440)
+fig.write_image(f"images/profile.pdf", format='pdf', width=2890, height=1440)

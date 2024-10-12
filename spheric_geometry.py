@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 
 
@@ -33,7 +34,7 @@ def arc_distance(point_1, point_2):
         _type_: _description_
     """
     h = hav(point_1, point_2)
-    
+
     return 2 * EARTH_RADIUS * np.arcsin(np.sqrt(h))
 
 
@@ -60,7 +61,7 @@ def angle_between_segments(point_A, point_B, point_C):
     return np.arccos(B) if (B < 1 and B > -1) else np.pi
 
 
-def spheric_to_decart(theta, phi, r=EARTH_RADIUS):
+def spheric_to_decart(theta: float, phi: float, r: float=EARTH_RADIUS):
     x = r * np.sin(theta) * np.cos(phi)
     y = r * np.sin(theta) * np.sin(phi)
     z = r * np.cos(theta)
