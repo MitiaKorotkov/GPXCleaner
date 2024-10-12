@@ -9,7 +9,6 @@ from spheric_geometry import arc_distance, angle_between_segments, spheric_to_de
 
 
 TMP_FILES_DIRECTORY = "tmps"
-ORIENT_MODE = 1
 
 
 def create_track_dataframe(track_name: str) -> pd.DataFrame:
@@ -132,12 +131,6 @@ def create_wpts_dataframe(track_name: str) -> pd.DataFrame:
     df = pd.read_csv(f"./{TMP_FILES_DIRECTORY}/wpts_{track_name}.csv")
     # TODO(Dima): improve this function
     return df
-
-
-df = create_track_dataframe("кольцо12")
-add_angles_betwen_segments(df)
-add_arc_lengths_betwen_segments(df)
-add_arc_distances_from_start(df)
 
 
 def make_plot(df: pd.DataFrame, x: str, y: str) -> None:
