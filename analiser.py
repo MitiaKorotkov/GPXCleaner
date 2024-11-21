@@ -71,6 +71,21 @@ def add_arc_distances_from_start(df: pd.DataFrame) -> None:
     df["arc_distances_from_start"] = np.cumsum(arc_lengths)
 
 
+def add_lengths_betwen_segments(df: pd.DataFrame) -> None:
+    lons = np.array(df["rel_lon"])
+    lats = np.array(df["rel_lat"])
+    points = np.array(list(zip(lats, lons)))
+    
+    def dist(x, y):
+        return ((x[0] - y[0]) ** 2 + (x[1] - y[1])) ** 0.5
+
+    lengths = np.array(
+        [dist(*points[i : i + 2]) for i in range(len(points) - 1)] + [0]
+    )
+
+    df["lengths_betwen_segments"] = lengths
+
+
 def add_distances_from_start(df: pd.DataFrame) -> None:
     lons = np.array(df["lon"])
     lats = np.array(df["lat"])

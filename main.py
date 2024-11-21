@@ -15,13 +15,14 @@ from PyQt6.QtCore import Qt, QSize, QLocale, QPoint, pyqtSignal
 from PyQt6.QtGui import QBrush, QPainter, QKeyEvent, QColor
 
 import numpy as np
+from random import randint
 import sys
 
 class CustomViewer(QGraphicsView):
     pass
 
 class MainWindow(QWidget):
-    def __init__(self, buttons_positions, max_x, max_y):
+    def __init__(self, points_positions, max_x, max_y):
         super().__init__()
 
         self.setWindowTitle("Hi there")
@@ -29,8 +30,10 @@ class MainWindow(QWidget):
 
         self.scene = QGraphicsScene(0, 0, max_x, max_y)
 
-        for position in buttons_positions:
-            self.paint_circle(position)
+        colors = [QColor(randint(1, 255), randint(1, 255), randint(1, 255)) for _ in range(500)]
+        for x, y, label in points_positions:
+            color = colors[label]
+            self.paint_circle([x, y], color)
 
         self.view = QGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -43,14 +46,14 @@ class MainWindow(QWidget):
 
         # self.setLayout(hbox)
 
-    def paint_circle(self, position):
+    def paint_circle(self, position, color):
         circle = QGraphicsEllipseItem(0, 0, 500, 500)
         circle.setPos(*position)
 
         circle.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         circle.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
 
-        circle.setBrush(QBrush(Qt.GlobalColor.blue))
+        circle.setBrush(QBrush(color))
         self.scene.addItem(circle)
 
     def keyPressEvent(self, event):
