@@ -1,11 +1,15 @@
-from typing import List
-import xml.etree.ElementTree as et
-from os.path import dirname
-from os import makedirs
-import csv
-from numpy import pi as PI
-from pandas import to_datetime
+import pandas as pd
+import numpy as np
 
+import csv
+from os import makedirs, remove
+from os.path import dirname
+
+import xml.etree.ElementTree as et
+
+from typing import List
+
+PI = np.pi
 
 GPX_NAMESPACE = {"gpx": "http://www.topografix.com/GPX/1/1"}
 TRACK_FILES_DIRECTORY = "tracks"
@@ -104,26 +108,30 @@ def write_trkseg_to_csv(
             data = point.findtext("./gpx:time", namespaces=GPX_NAMESPACE)[:-1].split(
                 "T"
             )
-            datetime = to_datetime(' '.join(data))
+            datetime = pd.to_datetime(" ".join(data))
 
             writer.writerows([[lattitude, longitude, elevation, datetime]])
 
 
-def gpx_to_csv(trip_name: str, track_filenames: List[str]) -> None:
+def gpx_to_csv(dir_name: str, track_filenames: List[str], parse_waypoints=False) -> str:
     """This function read gpx file and write different segments of track in
     different csv files. Each track point in csv represented by a raw containing
     lattitude, longitude, elevation, day and time in this order.
 
     Args:
-        trip_name (str): name of directory with .gpx files
+        dir_name (str): name of directory with .gpx files
         track_filenames (List[str]): name of .gpx files without resolution
+        parse_waypoints (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        str: _description_
     """
     track_file_exists = False
     wpts_file_exists = False
     track_name = ""
     for track_filename in track_filenames:
         root = et.parse(
-            f"./{TRACK_FILES_DIRECTORY}/{trip_name}/{track_filename}.gpx"
+            f"./{TRACK_FILES_DIRECTORY}/{dir_name}/{track_filename}.gpx"
         ).getroot()
 
         if not track_file_exists:
@@ -136,5 +144,32 @@ def gpx_to_csv(trip_name: str, track_filenames: List[str]) -> None:
             write_trkseg_to_csv(segment, track_name, add=track_file_exists)
             track_file_exists = True
 
-        write_waypoints_to_csv(waypoints, track_name, add=wpts_file_exists)
-        wpts_file_exists = True
+        if parse_waypoints:
+            write_waypoints_to_csv(waypoints, track_name, add=wpts_file_exists)
+            wpts_file_exists = True
+
+        return track_name
+
+
+def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
+    """_summary_
+
+    Args:
+        dir_name (str): _description_
+        track_filenames (List[str]): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    csv_filename = (
+        f"./{TMP_FILES_DIRECTORY}/track_{gpx_to_csv(dir_name, track_filenames)}.csv"
+    )
+    df = pd.read_csv(csv_filename)
+
+    start_day = pd.to_datetime(df["date"][0])
+    rel_times = pd.to_datetime(df["date"]) - start_day
+    df["sec_from_start"] = rel_times / np.timedelta64(1, "s")
+
+    remove(csv_filename)
+
+    return df

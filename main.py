@@ -1,3 +1,4 @@
+from operator import le
 import venv
 from PyQt6.QtWidgets import (
     QApplication,
@@ -30,7 +31,7 @@ class MainWindow(QWidget):
 
         self.scene = QGraphicsScene(0, 0, max_x, max_y)
 
-        colors = [QColor(randint(1, 255), randint(1, 255), randint(1, 255)) for _ in range(500)]
+        colors = [QColor(randint(1, 255), randint(1, 255), randint(1, 255)) for _ in range(1000)]
         for x, y, label in points_positions:
             color = colors[label]
             self.paint_circle([x, y], color)

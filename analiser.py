@@ -72,6 +72,11 @@ def add_arc_distances_from_start(df: pd.DataFrame) -> None:
 
 
 def add_lengths_betwen_segments(df: pd.DataFrame) -> None:
+    big_number = 1e8
+
+    df['rel_lat'] = (df['lat'] - df['lat'].min()) * big_number
+    df['rel_lon'] = (df['lon'] - df['lon'].min()) * big_number
+
     lons = np.array(df["rel_lon"])
     lats = np.array(df["rel_lat"])
     points = np.array(list(zip(lats, lons)))
@@ -197,4 +202,45 @@ def make_plot(df: pd.DataFrame, x: str, y: str) -> None:
 
 def make_pairplt(df: pd.DataFrame) -> None:
     sns.pairplot(df)
+    plt.show()
+
+
+def plot_clusters(db_model, labels, points):
+    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise_ = list(labels).count(-1)
+
+    unique_labels = set(labels)
+    core_samples_mask = np.zeros_like(labels, dtype=bool)
+    core_samples_mask[db_model.core_sample_indices_] = True
+
+    colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+
+    for k, col in zip(unique_labels, colors):
+        if k == -1:
+            # Black used for noise.
+            col = [0, 0, 0, 1]
+
+        class_member_mask = labels == k
+
+        xy = points[class_member_mask & core_samples_mask]
+        plt.plot(
+            xy[:, 0],
+            xy[:, 1],
+            "o",
+            markerfacecolor=tuple(col),
+            markeredgecolor="k",
+            markersize=5,
+        )
+
+        xy = points[class_member_mask & ~core_samples_mask]
+        plt.plot(
+            xy[:, 0],
+            xy[:, 1],
+            "o",
+            markerfacecolor=tuple(col),
+            markeredgecolor="k",
+            markersize=6,
+        )
+
+    plt.title(f"Estimated number of clusters: {n_clusters_}")
     plt.show()
