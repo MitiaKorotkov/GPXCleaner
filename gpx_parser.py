@@ -7,7 +7,7 @@ from os.path import dirname
 
 import xml.etree.ElementTree as et
 
-from typing import List
+from typing import Generator, List
 
 PI = np.pi
 
@@ -113,7 +113,7 @@ def write_trkseg_to_csv(
             writer.writerows([[lattitude, longitude, elevation, datetime]])
 
 
-def gpx_to_csv(dir_name: str, track_filenames: List[str], parse_waypoints=False) -> str:
+def gpx_to_csv(dir_name: str, track_filenames: List[str], parse_waypoints=False) -> Generator[str, str, str]:
     """This function read gpx file and write different segments of track in
     different csv files. Each track point in csv represented by a raw containing
     lattitude, longitude, elevation, day and time in this order.
@@ -148,7 +148,7 @@ def gpx_to_csv(dir_name: str, track_filenames: List[str], parse_waypoints=False)
             write_waypoints_to_csv(waypoints, track_name, add=wpts_file_exists)
             wpts_file_exists = True
 
-        return track_name  # BUG(Dima): Huge bug
+        yield track_name
 
 
 def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
@@ -161,23 +161,30 @@ def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
     Returns:
         _type_: _description_
     """
-
-    csv_filename = f"./{TMP_FILES_DIRECTORY}/track_{gpx_to_csv(dir_name, track_filenames)}.csv"  # TODO(Dima): Add the ability to open tracks from any directories!
-    df = pd.read_csv(csv_filename)
+    # TODO(Dima): Add the ability to open tracks from any directories!
+    # TODO(Dima): Create tmp directory for csv files here
+    df = pd.concat(
+        [
+            pd.read_csv(f"./{TMP_FILES_DIRECTORY}/track_{segment_name}.csv")
+            for segment_name in gpx_to_csv(dir_name, track_filenames)
+        ]
+    )
+    df = df.set_index(np.arange(df.shape[0]))
 
     start_day = pd.to_datetime(df["date"][0])
     rel_times = pd.to_datetime(df["date"]) - start_day
     df["sec_from_start"] = rel_times / np.timedelta64(1, "s")
 
-    remove(csv_filename)
+    # TODO(Dima): Remove hole tmp directory
+    # remove(csv_filename)
 
     return df
 
 
 def write_to_gpx(df: pd.DataFrame, filename: str) -> None:
     coordinates = [
-        (lon * np.pi / 180, lat * np.pi / 180, time)
-        for lon, lat, time in zip(df['lon'], df['lat'], df["date"])
+        (lat / np.pi * 180, lon / np.pi * 180, time)
+        for lat, lon, time in zip(df["lat"], df["lon"], df["date"])
     ]
 
     gpx = et.Element("gpx", version="1.1", xmlns="http://www.topografix.com/GPX/1/1")
