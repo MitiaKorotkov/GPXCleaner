@@ -132,7 +132,7 @@ def gpx_to_csv(dir_name: str, track_filenames: List[str], parse_waypoints=False)
     for track_filename in track_filenames:
         root = et.parse(
             f"./{TRACK_FILES_DIRECTORY}/{dir_name}/{track_filename}.gpx"
-        ).getroot()
+        ).getroot()  # TODO(Dima): Add the ability to open tracks from any directories!
 
         if not track_file_exists:
             track_name = root.find("./gpx:trk/gpx:name", namespaces=GPX_NAMESPACE).text
@@ -148,7 +148,7 @@ def gpx_to_csv(dir_name: str, track_filenames: List[str], parse_waypoints=False)
             write_waypoints_to_csv(waypoints, track_name, add=wpts_file_exists)
             wpts_file_exists = True
 
-        return track_name
+        return track_name  # BUG(Dima): Huge bug
 
 
 def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
@@ -161,9 +161,8 @@ def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
     Returns:
         _type_: _description_
     """
-    csv_filename = (
-        f"./{TMP_FILES_DIRECTORY}/track_{gpx_to_csv(dir_name, track_filenames)}.csv"
-    )
+
+    csv_filename = f"./{TMP_FILES_DIRECTORY}/track_{gpx_to_csv(dir_name, track_filenames)}.csv"  # TODO(Dima): Add the ability to open tracks from any directories!
     df = pd.read_csv(csv_filename)
 
     start_day = pd.to_datetime(df["date"][0])
@@ -173,3 +172,31 @@ def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
     remove(csv_filename)
 
     return df
+
+
+def write_to_gpx(df: pd.DataFrame, filename: str) -> None:
+    coordinates = [
+        (lon * np.pi / 180, lat * np.pi / 180, time)
+        for lon, lat, time in zip(df['lon'], df['lat'], df["date"])
+    ]
+
+    gpx = et.Element("gpx", version="1.1", xmlns="http://www.topografix.com/GPX/1/1")
+
+    track = et.SubElement(gpx, "trk")
+    name = et.SubElement(gpx, "name")
+    track_name = et.SubElement(track, "name")
+    track_segment = et.SubElement(track, "trkseg")
+
+    name.text = "tmp_name"
+    track_name.text = "tmp_name"
+
+    for lat, lon, t in coordinates:
+        point = et.SubElement(
+            track_segment, "trkpt", attrib={"lat": str(lat), "lon": str(lon)}
+        )
+        point_time = et.SubElement(point, "time")
+        point_time.text = t
+
+    tree = et.ElementTree(gpx)
+
+    tree.write(filename, encoding="utf-8", xml_declaration=True)
