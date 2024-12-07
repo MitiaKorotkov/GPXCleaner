@@ -1,17 +1,16 @@
 from PyQt6.QtWidgets import (
     QApplication,
-    QMainWindow,
-    QPushButton,
     QWidget,
     QHBoxLayout,
     QGraphicsScene,
     QGraphicsEllipseItem,
+    QGraphicsLineItem,
     QGraphicsItem,
     QGraphicsView,
 )
 
-from PyQt6.QtCore import Qt, QSize, QLocale, QPoint, pyqtSignal
-from PyQt6.QtGui import QBrush, QPainter, QKeyEvent, QColor
+from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtGui import QBrush, QPainter, QKeyEvent, QColor, QPen
 
 import numpy as np
 import pandas as pd
@@ -24,10 +23,6 @@ from gpx_parser import read_gpx
 
 def get_random_color():
     return QColor(randint(1, 255), randint(1, 255), randint(1, 255))
-
-
-class CustomViewer(QGraphicsView):
-    pass
 
 
 class MainWindow(QWidget):
@@ -49,7 +44,7 @@ class MainWindow(QWidget):
         hbox.addWidget(self.view)
 
     def paint_circle(self, position, color, radius=500):
-        circle = QGraphicsEllipseItem(0, 0, radius, radius)
+        circle = QGraphicsEllipseItem(-radius / 2, -radius / 2, radius, radius)
         circle.setPos(*position)
 
         circle.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
@@ -58,10 +53,20 @@ class MainWindow(QWidget):
 
         self.scene.addItem(circle)
 
-    def paint_path(self, points, num_labels, radius=500, color=None):
-        colors = [
-            get_random_color() if color is None else color for _ in range(num_labels)
-        ]
+    def paint_line(self, point1, point2, color):
+        line = QGraphicsLineItem(int(point1[0]), int(point1[1]), int(point2[0]), int(point2[1]))
+        pen = QPen(color, 4)
+        line.setPen(pen)
+        self.scene.addItem(line)
+
+    def paint_path(self, points, radius=500, colors=None, show_segments=False):
+        if colors is None:
+            num_labels = len(set([label for _, _, label in points]))
+            colors = [get_random_color() for _ in range(num_labels)]
+
+        if show_segments:
+            for i in range(len(points) - 1):
+                self.paint_line(points[i][:2], points[i + 1][:2], Qt.GlobalColor.blue)
 
         for x, y, label in points:
             self.paint_circle([x, y], colors[label], radius=radius)
@@ -85,37 +90,34 @@ class MainWindow(QWidget):
         return super().keyPressEvent(event)
 
 
-def view_df(df: pd.DataFrame):
+def view_df(df: pd.DataFrame, show_deleted=False, show_segments=False):
     BIG_NUMBER = 1e8
 
-    df["rel_lat"] = df["lat"] - df["lat"].min()
-    df["rel_lon"] = df["lon"] - df["lon"].min()
+    df["rel_lat"] = (df["lat"] - df["lat"].min()) * BIG_NUMBER
+    df["rel_lon"] = (df["lon"] - df["lon"].min()) * BIG_NUMBER
 
-    max_lon = df["rel_lon"].max() * BIG_NUMBER
-    max_lat = df["rel_lat"].max() * BIG_NUMBER
+    max_lon = df["rel_lon"].max()
+    max_lat = df["rel_lat"].max()
 
     app = QApplication(sys.argv)
     window = MainWindow(1.1 * max_lon, 1.1 * max_lat)
 
-    if "deleted" in df.columns:
+    if show_deleted:
         deleted_df = df[df["deleted"]]
         deleted_points = [
-            [lon * BIG_NUMBER, lat * BIG_NUMBER, 0]
-            for lon, lat in zip(deleted_df["rel_lon"], deleted_df["rel_lat"])
+            [x, y, 0] for x, y in zip(deleted_df["rel_lat"], deleted_df["rel_lon"])
         ]
         window.paint_path(
             points=deleted_points,
-            num_labels=1,
             radius=1500,
-            color=Qt.GlobalColor.black,
+            colors=[Qt.GlobalColor.black],
         )
 
     points = [
-        [lon * BIG_NUMBER, lat * BIG_NUMBER, label]
-        for lon, lat, label in zip(df["rel_lon"], df["rel_lat"], df["cluster"])
+        [x, y, label]
+        for x, y, label in zip(df["rel_lat"], df["rel_lon"], df["cluster"])
     ]
-
-    window.paint_path(points=points, num_labels=df["cluster"].unique().shape[0])
+    window.paint_path(points=points, show_segments=show_segments)
 
     window.show()
     app.exec()
@@ -123,7 +125,6 @@ def view_df(df: pd.DataFrame):
 
 def open_gpx(dir_name, filename):
     df = read_gpx(dir_name, [filename])
-
     df["cluster"] = np.array([-1 for _ in range(df.shape[0])])
 
     view_df(df)
