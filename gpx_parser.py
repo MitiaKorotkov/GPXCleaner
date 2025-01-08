@@ -180,6 +180,31 @@ def read_gpx(dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
 
     return df
 
+def make_train_pool(dir_name: str, clean_dir_name: str, track_filenames: List[str]) -> pd.DataFrame:
+    """
+        Читает исходный и очищенный трек в dataframe, добавляет колонку Target 1 - для почищенных точек, 0 - для остальных
+    """
+
+    df = read_gpx(dir_name, track_filenames)
+    columns = list(df.columns)
+    df['lat_norm'] = (df['lat']*1e6).astype(int) 
+    df['lon_norm'] = (df['lon']*1e6).astype(int) 
+    df['Target_all'] = 1
+
+    clean_df = read_gpx(clean_dir_name, track_filenames)
+    clean_df['Target_clean'] = 0
+    clean_df['lat_norm'] = (clean_df['lat']*1e6).astype(int) 
+    clean_df['lon_norm'] = (clean_df['lon']*1e6).astype(int) 
+
+    groups = clean_df.groupby(["lat_norm", "lon_norm"])[["Target_clean"]]
+    clean_df = groups.first()
+
+
+    result_df = df.merge(clean_df, 'left', suffixes=["", "_clean"], on=["lat_norm", "lon_norm"])
+
+    result_df['Target'] = np.nan_to_num(result_df['Target_clean'], nan=1)
+    return result_df[columns + ['Target']]
+
 
 def write_to_gpx(df: pd.DataFrame, filename: str) -> None:
     coordinates = [
